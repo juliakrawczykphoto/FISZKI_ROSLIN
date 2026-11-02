@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fiszki – rośliny</title>
+<style>
+:root{--bg:#f4f7f2;--fg:#1d2b1f;--card:#fff;--ac:#2f7d3a;--mu:#6b7a6d;--bd:#d5dfd2}
+@media(prefers-color-scheme:dark){:root{--bg:#141a15;--fg:#e6efe6;--card:#1f2921;--ac:#6fcf7b;--mu:#97a89a;--bd:#33423a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.4 system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:16px}
+h1{font-size:1.3rem;margin:4px 0 12px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:12px}
+button,select{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--fg);cursor:pointer}
+button:hover{border-color:var(--ac)}
+.scene{perspective:1200px;width:min(560px,100%);height:min(70vh,520px);cursor:pointer}
+.card{position:relative;width:100%;height:100%;transition:transform .5s;transform-style:preserve-3d}
+.card.flip{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;backface-visibility:hidden;background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:12px;display:flex;align-items:center;justify-content:center;gap:8px;overflow:hidden}
+.back{transform:rotateY(180deg);flex-direction:column;text-align:center;gap:6px}
+.face img{max-width:100%;min-width:0;flex:1 1 0;max-height:100%;object-fit:contain;border-radius:8px}
+.lbl{color:var(--mu);font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}
+.pl{font-size:1.9rem;font-weight:700}
+.la{font-size:1.5rem;font-style:italic;color:var(--ac)}
+.no{color:var(--mu);font-style:italic}
+.snd{padding:6px 12px;font-size:.9rem;margin-top:2px}
+.info{margin:10px 0;color:var(--mu);font-size:.9rem}
+</style>
+</head>
+<body>
+<h1>Fiszki do nauki roślin</h1>
+<div class="bar">
+  <select id="grp" aria-label="Zbiór"></select>
+  <button id="shuf">Pomieszaj</button>
+</div>
+<div class="scene" id="scene"><div class="card" id="card">
+  <div class="face front" id="front"></div>
+  <div class="face back" id="back"></div>
+</div></div>
+<div class="info" id="info"></div>
+<div class="bar"><button id="prev">← Poprzednia</button><button id="flip">Odwróć (spacja)</button><button id="next">Następna →</button></div>
+<script src="cards.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+let deck=[],i=0;
+const groups=['Wszystkie',...new Set(CARDS.map(c=>c.g))];
+$('grp').innerHTML=groups.map(g=>`<option>${g}</option>`).join('');
+
+function speak(text,lang){
+  if(!('speechSynthesis' in window))return;
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);
+  const vs=speechSynthesis.getVoices();
+  let l=lang,v=vs.find(x=>x.lang.toLowerCase().startsWith(lang.slice(0,2)));
+  if(lang==='la'&&!v){l='it-IT';v=vs.find(x=>x.lang.replace('_','-').startsWith('it'))}
+  if(lang==='pl-PL')v=vs.find(x=>x.lang.replace('_','-').startsWith('pl'))||v;
+  u.lang=l;if(v)u.voice=v;u.rate=.85;
+  speechSynthesis.speak(u);
+}
+speechSynthesis.onvoiceschanged=()=>{};
+
+function load(g){
+  deck=CARDS.filter(c=>g==='Wszystkie'||c.g===g);i=0;show();
+}
+function show(){
+  const c=deck[i];
+  $('card').classList.remove('flip');
+  $('front').innerHTML=c.img.map(s=>`<img src="${s}" alt="Roślina do rozpoznania">`).join('');
+  $('back').innerHTML=
+    `<div class="lbl">Nazwa polska</div>`+
+    (c.pl?`<div class="pl">${c.pl}</div><button class="snd" data-t="${c.pl}" data-l="pl-PL">🔊 Polski</button>`
+         :`<div class="no">brak w materiałach</div>`)+
+    `<div class="lbl" style="margin-top:14px">Nazwa łacińska</div>`+
+    `<div class="la">${c.la}</div><button class="snd" data-t="${c.la}" data-l="la">🔊 Łacina</button>`+
+    `<div class="lbl" style="margin-top:14px">${c.g}</div>`;
+  $('info').textContent=`${i+1} / ${deck.length}`;
+}
+$('back').addEventListener('click',e=>{
+  const b=e.target.closest('.snd');
+  if(b){e.stopPropagation();speak(b.dataset.t,b.dataset.l)}
+});
+const flip=()=>$('card').classList.toggle('flip');
+$('scene').onclick=flip;$('flip').onclick=flip;
+const go=d=>{i=(i+d+deck.length)%deck.length;show()};
+$('prev').onclick=()=>go(-1);$('next').onclick=()=>go(1);
+$('grp').onchange=e=>load(e.target.value);
+$('shuf').onclick=()=>{
+  for(let k=deck.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[deck[k],deck[j]]=[deck[j],deck[k]]}
+  i=0;show();
+};
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='SELECT')return;
+  if(e.key===' '){e.preventDefault();flip()}
+  else if(e.key==='ArrowRight')go(1);
+  else if(e.key==='ArrowLeft')go(-1);
+});
+load('Wszystkie');
+</script>
+</body>
+</html>
